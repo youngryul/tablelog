@@ -34,7 +34,7 @@
 ┌─────────────────────────────────────────────┐
 │ Supabase                                     │
 │ - PostgreSQL (RLS 활성화)                     │
-│ - Storage (memory-images bucket)             │
+│ - Storage (tablelog-memory-images bucket)    │
 └─────────────────────────────────────────────┘
 ```
 
@@ -84,6 +84,8 @@ POST /api/memories/:memoryId/images (multipart)
 ---
 
 ## 2. ERD (Entity Relationship Diagram)
+
+> **실제 DB 이름:** 하나의 DB를 여러 서비스가 함께 쓰므로 아래 테이블은 실제로 모두 `tablelog_` 접두어가 붙는다 (`profiles` → `tablelog_profiles`, `memories` → `tablelog_memories` 등). 함수·인덱스·정책도 같고, Storage 버킷은 `tablelog-memory-images`다. 문서에서는 읽기 쉽도록 접두어를 생략한다. 규칙은 [`../supabase/README.md`](../supabase/README.md) 참고.
 
 ```mermaid
 erDiagram
@@ -161,7 +163,7 @@ erDiagram
 
 | 관계 | 카디널리티 | 비고 |
 |---|---|---|
-| `auth.users` – `profiles` | 1:1 | `profiles.id = auth.users.id`, 회원가입 시 Trigger 또는 Backend에서 함께 생성 |
+| `auth.users` – `profiles` | 1:1 | `profiles.id = auth.users.id`, Backend `authMiddleware`가 첫 인증 요청 때 생성 (auth.users를 다른 서비스와 공유하므로 가입 트리거는 쓰지 않음) |
 | `profiles` – `user_places` | 1:N | 사용자가 저장한 장소 목록 |
 | `places` – `user_places` | 1:N | 동일 장소를 여러 사용자가 각자 저장 가능 |
 | `profiles` – `memories` | 1:N | 사용자의 방문 기록 |
@@ -185,7 +187,7 @@ erDiagram
 | created_at | timestamptz | NOT NULL, default now() | |
 | updated_at | timestamptz | NOT NULL, default now() | |
 
-- 신규 가입 시 `profiles` row가 없으면 다른 사용자의 PUBLIC 추억에 닉네임이 표시되지 않으므로, 가입 직후 자동 생성이 필요하다. Supabase `auth.users` INSERT 트리거로 자동 생성하는 방식을 4단계(SQL Migration)에서 함께 정의한다.
+- 신규 가입 시 `profiles` row가 없으면 다른 사용자의 PUBLIC 추억에 닉네임이 표시되지 않으므로, 가입 직후 자동 생성이 필요하다. `auth.users`는 다른 서비스와 공유하므로 INSERT 트리거 대신 Backend `authMiddleware`가 첫 인증 요청 때 `tablelog_profiles` row를 upsert한다.
 
 ### 3-2. `places`
 
@@ -327,7 +329,7 @@ USING (
 )
 ```
 
-### 4-4. Storage RLS (Bucket: `memory-images`)
+### 4-4. Storage RLS (Bucket: `tablelog-memory-images`)
 
 | 정책 | 조건 |
 |---|---|

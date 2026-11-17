@@ -2,7 +2,7 @@ import { randomUUID } from 'node:crypto'
 import { supabaseAdminClient } from '../lib/supabase'
 import { ApiError } from '../types'
 
-const MEMORY_IMAGES_BUCKET = 'memory-images'
+const MEMORY_IMAGES_BUCKET = 'tablelog-memory-images'
 const ALLOWED_MIME_TYPES: Record<string, string> = {
   'image/jpeg': 'jpg',
   'image/png': 'png',

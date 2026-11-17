@@ -9,9 +9,11 @@ import type {
   UpdateMemoryInput,
 } from '../types/memory'
 
-const MEMORY_RELATIONS = 'memory_menus(menu_name, sort_order), memory_images(id, image_url, sort_order)'
+// 조회 결과 키를 기존 이름(memory_menus 등)으로 유지하려고 PostgREST alias(별칭:테이블명)를 쓴다.
+const MEMORY_RELATIONS =
+  'memory_menus:tablelog_memory_menus(menu_name, sort_order), memory_images:tablelog_memory_images(id, image_url, sort_order)'
 const MEMORY_SELECT_WITH_RELATIONS = `*, ${MEMORY_RELATIONS}`
-const PUBLIC_MEMORY_SELECT = `*, profiles(nickname, profile_image_url), ${MEMORY_RELATIONS}`
+const PUBLIC_MEMORY_SELECT = `*, profiles:tablelog_profiles(nickname, profile_image_url), ${MEMORY_RELATIONS}`
 
 interface MemoryRow {
   id: string
@@ -65,7 +67,7 @@ function toPublicMemory(row: PublicMemoryRow): PublicMemory {
 
 export const memoryRepository = {
   async createWithMenus(userId: string, input: CreateMemoryInput): Promise<string> {
-    const { data, error } = await supabaseAdminClient.rpc('create_memory_with_menus', {
+    const { data, error } = await supabaseAdminClient.rpc('tablelog_create_memory_with_menus', {
       p_user_id: userId,
       p_place_id: input.placeId,
       p_visit_date: input.visitDate,
@@ -83,7 +85,7 @@ export const memoryRepository = {
 
   async findById(memoryId: string): Promise<Memory | null> {
     const { data, error } = await supabaseAdminClient
-      .from('memories')
+      .from('tablelog_memories')
       .select(MEMORY_SELECT_WITH_RELATIONS)
       .eq('id', memoryId)
       .is('deleted_at', null)
@@ -105,7 +107,7 @@ export const memoryRepository = {
 
     if (Object.keys(updateFields).length > 0) {
       const { data, error } = await supabaseAdminClient
-        .from('memories')
+        .from('tablelog_memories')
         .update(updateFields)
         .eq('id', memoryId)
         .eq('user_id', userId)
@@ -119,13 +121,13 @@ export const memoryRepository = {
 
     if (patch.menus !== undefined) {
       const { error: deleteError } = await supabaseAdminClient
-        .from('memory_menus')
+        .from('tablelog_memory_menus')
         .delete()
         .eq('memory_id', memoryId)
       if (deleteError) throw deleteError
 
       if (patch.menus.length > 0) {
-        const { error: insertError } = await supabaseAdminClient.from('memory_menus').insert(
+        const { error: insertError } = await supabaseAdminClient.from('tablelog_memory_menus').insert(
           patch.menus.map((menuName, index) => ({
             memory_id: memoryId,
             menu_name: menuName,
@@ -142,7 +144,7 @@ export const memoryRepository = {
   /** userId 소유의 memory만 Soft Delete. 성공 여부를 반환한다. */
   async softDelete(memoryId: string, userId: string): Promise<boolean> {
     const { data, error } = await supabaseAdminClient
-      .from('memories')
+      .from('tablelog_memories')
       .update({ deleted_at: new Date().toISOString() })
       .eq('id', memoryId)
       .eq('user_id', userId)
@@ -156,7 +158,7 @@ export const memoryRepository = {
 
   async findMyForPlace(userId: string, placeId: string): Promise<Memory[]> {
     const { data, error } = await supabaseAdminClient
-      .from('memories')
+      .from('tablelog_memories')
       .select(MEMORY_SELECT_WITH_RELATIONS)
       .eq('user_id', userId)
       .eq('place_id', placeId)
@@ -170,7 +172,7 @@ export const memoryRepository = {
   async findPublicForPlace(placeId: string, { page, size }: PageQuery): Promise<PublicMemory[]> {
     const from = (page - 1) * size
     const { data, error } = await supabaseAdminClient
-      .from('memories')
+      .from('tablelog_memories')
       .select(PUBLIC_MEMORY_SELECT)
       .eq('place_id', placeId)
       .eq('visibility', 'PUBLIC')
@@ -185,7 +187,7 @@ export const memoryRepository = {
   async findMyTimeline(userId: string, query: TimelineQuery): Promise<Memory[]> {
     const from = (query.page - 1) * query.size
     let builder = supabaseAdminClient
-      .from('memories')
+      .from('tablelog_memories')
       .select(MEMORY_SELECT_WITH_RELATIONS)
       .eq('user_id', userId)
       .is('deleted_at', null)
@@ -218,7 +220,7 @@ export const memoryRepository = {
 
   async isOwnedByUser(memoryId: string, userId: string): Promise<boolean> {
     const { data, error } = await supabaseAdminClient
-      .from('memories')
+      .from('tablelog_memories')
       .select('id')
       .eq('id', memoryId)
       .eq('user_id', userId)
@@ -233,13 +235,13 @@ export const memoryRepository = {
     if (images.length === 0) return
 
     const { count, error: countError } = await supabaseAdminClient
-      .from('memory_images')
+      .from('tablelog_memory_images')
       .select('id', { count: 'exact', head: true })
       .eq('memory_id', memoryId)
     if (countError) throw countError
 
     const startSortOrder = count ?? 0
-    const { error } = await supabaseAdminClient.from('memory_images').insert(
+    const { error } = await supabaseAdminClient.from('tablelog_memory_images').insert(
       images.map((image, index) => ({
         memory_id: memoryId,
         storage_path: image.storagePath,

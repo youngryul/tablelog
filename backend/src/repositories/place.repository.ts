@@ -44,7 +44,7 @@ function toPlace(row: {
 export const placeRepository = {
   async upsertPlace(input: SavePlaceInput): Promise<Place> {
     const { data, error } = await supabaseAdminClient
-      .from('places')
+      .from('tablelog_places')
       .upsert(
         {
           external_place_id: input.externalPlaceId,
@@ -67,7 +67,7 @@ export const placeRepository = {
 
   async linkUserPlace(userId: string, placeId: string, status: UserPlaceStatus): Promise<void> {
     const { error } = await supabaseAdminClient
-      .from('user_places')
+      .from('tablelog_user_places')
       .upsert(
         { user_id: userId, place_id: placeId, status },
         { onConflict: 'user_id,place_id' },
@@ -78,7 +78,7 @@ export const placeRepository = {
 
   async findById(placeId: string): Promise<Place | null> {
     const { data, error } = await supabaseAdminClient
-      .from('places')
+      .from('tablelog_places')
       .select()
       .eq('id', placeId)
       .maybeSingle()
@@ -88,7 +88,7 @@ export const placeRepository = {
   },
 
   async findMyPlaces(userId: string, bounds?: MapBoundsQuery): Promise<PlaceSummary[]> {
-    const { data, error } = await supabaseAdminClient.rpc('get_my_places', {
+    const { data, error } = await supabaseAdminClient.rpc('tablelog_get_my_places', {
       p_user_id: userId,
       p_min_lat: bounds?.minLat ?? null,
       p_max_lat: bounds?.maxLat ?? null,
